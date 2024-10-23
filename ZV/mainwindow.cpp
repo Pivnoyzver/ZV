@@ -256,23 +256,32 @@ void MainWindow::stopStreaming()
 {
     if (pipeline) {
 
-        // Диалоговое окно с запросом подтверждения
-        QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(this, "Подтверждение", "Вы действительно хотите остановить трансляцию?", QMessageBox::Yes | QMessageBox::No);
+        // Создаём диалоговое окно
+        QMessageBox confirmBox;
+        confirmBox.setWindowTitle("Подтверждение");
+        confirmBox.setText("Вы действительно хотите остановить трансляцию?");
+        confirmBox.setIcon(QMessageBox::Question);
 
-        if (reply == QMessageBox::Yes) {
+        // Устанавливаем кнопки "Да" и "Нет" на русском языке
+        QPushButton *yesButton = confirmBox.addButton(tr("Да"), QMessageBox::YesRole);
+        QPushButton *noButton = confirmBox.addButton(tr("Нет"), QMessageBox::NoRole);
+
+        // Показываем диалоговое окно
+        confirmBox.exec();
+
+        if (confirmBox.clickedButton() == yesButton) {
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
 
-            qDebug() << "Трансляция остановлена.";
-            QMessageBox::information(this, "Трансляция", "Трансляция остановлена.");
+            qDebug() << "Трансляция остановлена";
+            QMessageBox::information(this, "Трансляция", "Трансляция остановлена!");
         }
     }
 
     else {
-    qDebug() << "Трансляция не была запущена.";
-    QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
+    qDebug() << "Трансляция не была запущена";
+    QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
     }
 }
 
@@ -285,7 +294,7 @@ void MainWindow::reloadDevices()
     QFile file("devices.json");
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "Не удалось открыть файл devices.json";
-        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json");
+        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json!");
         return;
     }
 
@@ -297,7 +306,7 @@ void MainWindow::reloadDevices()
     QJsonDocument doc = QJsonDocument::fromJson(fileData);
     if (!doc.isObject()) {
         qDebug() << "Неверный формат JSON";
-        QMessageBox::warning(this, "Файл", "Неверный формат JSON");
+        QMessageBox::warning(this, "Файл", "Неверный формат JSON!");
         return;
     }
 
@@ -311,8 +320,8 @@ void MainWindow::reloadDevices()
         qDebug() << "Добавлено устройство:" << deviceIP;
     }
 
-    qDebug() << "Список устройств обновлён.";
-    QMessageBox::information(this, "Файл", "Список устройств обновлён.");
+    qDebug() << "Список устройств обновлён";
+    QMessageBox::information(this, "Файл", "Список устройств обновлён!");
 }
 
 void MainWindow::streamFromMicrophone()
@@ -340,7 +349,7 @@ void MainWindow::streamFromMicrophone()
         GstElement *tee = gst_element_factory_make("tee", "tee");
 
         if (!pipeline || !micSource || !convert || !resample || !capsfilter || !tee) {
-            qDebug() << "Ошибка: Не удалось создать один или несколько элементов GStreamer!";
+            qDebug() << "Ошибка: Не удалось создать один или несколько элементов GStreamer";
             QMessageBox::warning(this, "Ошибка", "Не удалось создать один или несколько элементов GStreamer!");
             return;
         }
@@ -356,12 +365,12 @@ void MainWindow::streamFromMicrophone()
 
         // Связываем micSource -> convert -> resample -> capsfilter -> tee
         if (!gst_element_link_many(micSource, convert, resample, capsfilter, tee, NULL)) {
-            qDebug() << "Ошибка: Не удалось связать micSource, convert, resample, capsfilter и tee!";
+            qDebug() << "Ошибка: Не удалось связать micSource, convert, resample, capsfilter и tee";
             QMessageBox::warning(this, "Ошибка", "Не удалось связать micSource, convert, resample, capsfilter и tee!");
             return;
         }
 
-        qDebug() << "Элементы GStreamer созданы успешно.";
+        qDebug() << "Элементы GStreamer созданы успешно";
 
         // Настраиваем трансляцию на выбранные устройства
         for (auto *item : selectedDevices) {
@@ -373,7 +382,7 @@ void MainWindow::streamFromMicrophone()
             GstElement *udpSink = gst_element_factory_make("udpsink", nullptr);
 
             if (!queue || !rtpPay || !udpSink) {
-                qDebug() << "Ошибка: Не удалось создать элементы для RTP трансляции!";
+                qDebug() << "Ошибка: Не удалось создать элементы для RTP трансляции";
                 QMessageBox::warning(this, "Ошибка", "Не удалось создать элементы для RTP трансляции!");
                 return;
             }
@@ -383,7 +392,7 @@ void MainWindow::streamFromMicrophone()
 
             // Связываем tee -> queue -> rtpL16pay -> udpsink
             if (!gst_element_link_many(tee, queue, rtpPay, udpSink, NULL)) {
-                qDebug() << "Ошибка: Не удалось связать tee, queue, rtpL16pay и udpsink!";
+                qDebug() << "Ошибка: Не удалось связать tee, queue, rtpL16pay и udpsink";
                 QMessageBox::warning(this, "Ошибка", "Не удалось связать tee, queue, rtpL16pay и udpsink!");
                 return;
             }
@@ -402,22 +411,22 @@ void MainWindow::streamFromMicrophone()
         GstStateChangeReturn ret = gst_element_get_state(pipeline, &state, &pending, 5 * GST_SECOND);
 
         if (ret == GST_STATE_CHANGE_FAILURE) {
-            qDebug() << "Ошибка при запуске трансляции.";
-            QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции.");
+            qDebug() << "Ошибка при запуске трансляции";
+            QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции!");
         } else if (ret == GST_STATE_CHANGE_ASYNC) {
-            qDebug() << "Трансляция запускается асинхронно.";
+            qDebug() << "Трансляция запускается асинхронно";
             const char* res1 = gst_element_state_get_name(state);
             const char* res2 = gst_element_state_get_name(pending);
             qDebug() << "Текущее состояние:" << res1;
             qDebug() << "Ожидаемое состояние:" << res2;
-            QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно.\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
+            QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
-            qDebug() << "Трансляция успешно начата!";
+            qDebug() << "Трансляция успешно начата";
             QMessageBox::information(this, "Трансляция с микрофона", "Трансляция с микрофона успешно начата!\nВсе предыдущие трансляции были остановлены");
         }
 
     } else {
-        qDebug() << "Не выбрано ни одного устройства.";
-        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства.");
+        qDebug() << "Не выбрано ни одного устройства!";
+        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
     }
 }
