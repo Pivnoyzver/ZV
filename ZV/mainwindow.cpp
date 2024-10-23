@@ -217,10 +217,10 @@ void MainWindow::startStreaming()
         GstStateChangeReturn ret = gst_element_get_state(pipeline, &state, &pending, 5 * GST_SECOND);
 
         if (ret == GST_STATE_CHANGE_FAILURE) {
-            qDebug() << "Ошибка при запуске трансляции.";
-            QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции.");
+            qDebug() << "Ошибка при запуске трансляции";
+            QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции");
         } else if (ret == GST_STATE_CHANGE_ASYNC) {
-            qDebug() << "Трансляция запускается асинхронно.";
+            qDebug() << "Трансляция запускается асинхронно";
             const char* res1 = gst_element_state_get_name(state);
             const char* res2 = gst_element_state_get_name(pending);
             qDebug() << "Текущее состояние:" << res1;
@@ -247,8 +247,8 @@ void MainWindow::startStreaming()
 //        }
 
     } else {
-        qDebug() << "Не выбрано ни одного устройства.";
-        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства.");
+        qDebug() << "Не выбрано ни одного устройства!";
+        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
     }
 }
 
