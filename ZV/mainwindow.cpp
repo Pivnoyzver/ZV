@@ -332,6 +332,7 @@ void MainWindow::streamFromMicrophone()
 
         if (!pipeline || !micSource || !convert || !resample || !capsfilter || !tee) {
             qDebug() << "Ошибка: Не удалось создать один или несколько элементов GStreamer!";
+            QMessageBox::warning(this, "Ошибка", "Не удалось создать один или несколько элементов GStreamer!");
             return;
         }
 
@@ -347,6 +348,7 @@ void MainWindow::streamFromMicrophone()
         // Связываем micSource -> convert -> resample -> capsfilter -> tee
         if (!gst_element_link_many(micSource, convert, resample, capsfilter, tee, NULL)) {
             qDebug() << "Ошибка: Не удалось связать micSource, convert, resample, capsfilter и tee!";
+            QMessageBox::warning(this, "Ошибка", "Не удалось связать micSource, convert, resample, capsfilter и tee!");
             return;
         }
 
@@ -363,6 +365,7 @@ void MainWindow::streamFromMicrophone()
 
             if (!queue || !rtpPay || !udpSink) {
                 qDebug() << "Ошибка: Не удалось создать элементы для RTP трансляции!";
+                QMessageBox::warning(this, "Ошибка", "Не удалось создать элементы для RTP трансляции!");
                 return;
             }
 
@@ -372,6 +375,7 @@ void MainWindow::streamFromMicrophone()
             // Связываем tee -> queue -> rtpL16pay -> udpsink
             if (!gst_element_link_many(tee, queue, rtpPay, udpSink, NULL)) {
                 qDebug() << "Ошибка: Не удалось связать tee, queue, rtpL16pay и udpsink!";
+                QMessageBox::warning(this, "Ошибка", "Не удалось связать tee, queue, rtpL16pay и udpsink!");
                 return;
             }
 
@@ -390,15 +394,21 @@ void MainWindow::streamFromMicrophone()
 
         if (ret == GST_STATE_CHANGE_FAILURE) {
             qDebug() << "Ошибка при запуске трансляции.";
+            QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции.");
         } else if (ret == GST_STATE_CHANGE_ASYNC) {
             qDebug() << "Трансляция запускается асинхронно.";
-            qDebug() << "Текущее состояние:" << gst_element_state_get_name(state);
-            qDebug() << "Ожидаемое состояние:" << gst_element_state_get_name(pending);
+            const char* res1 = gst_element_state_get_name(state);
+            const char* res2 = gst_element_state_get_name(pending);
+            qDebug() << "Текущее состояние:" << res1;
+            qDebug() << "Ожидаемое состояние:" << res2;
+            QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно.\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
             qDebug() << "Трансляция успешно начата!";
+            QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
         }
 
     } else {
         qDebug() << "Не выбрано ни одного устройства.";
+        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства.");
     }
 }
