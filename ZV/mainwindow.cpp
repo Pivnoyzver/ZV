@@ -254,16 +254,25 @@ void MainWindow::startStreaming()
 
 void MainWindow::stopStreaming()
 {
-    // Останавливаем текущий GStreamer pipeline, если он существует
     if (pipeline) {
-        gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
-        gst_object_unref(pipeline);  // Освобождаем ресурсы
-        pipeline = nullptr;  // Сбрасываем pipeline
-        qDebug() << "Трансляция остановлена.";
-        QMessageBox::information(this, "Трансляция", "Трансляция остановлена.");
-    } else {
-        qDebug() << "Трансляция не была запущена.";
-        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
+
+        // Диалоговое окно с запросом подтверждения
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, "Подтверждение", "Вы действительно хотите остановить трансляцию?", QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::Yes) {
+            gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
+            gst_object_unref(pipeline);  // Освобождаем ресурсы
+            pipeline = nullptr;  // Сбрасываем pipeline
+
+            qDebug() << "Трансляция остановлена.";
+            QMessageBox::information(this, "Трансляция", "Трансляция остановлена.");
+        }
+    }
+
+    else {
+    qDebug() << "Трансляция не была запущена.";
+    QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
     }
 }
 
@@ -404,7 +413,7 @@ void MainWindow::streamFromMicrophone()
             QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно.\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
             qDebug() << "Трансляция успешно начата!";
-            QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
+            QMessageBox::information(this, "Трансляция с микрофона", "Трансляция с микрофона успешно начата!\nВсе предыдущие трансляции были остановлены");
         }
 
     } else {
