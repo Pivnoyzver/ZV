@@ -17,14 +17,14 @@ public:
 private slots:
     void startStreaming();       // Начало трансляции
     void stopStreaming();        // Остановка трансляции
-    void loadPlaylist();         // Загрузка аудиофайла
+    void ChooseFile();         // Загрузка аудиофайла
     void reloadDevices();        // Перезагрузка списка устройств
     void streamFromMicrophone(); // Трансляция с микрофона
 
 private:
     QPushButton *startButton;
     QPushButton *stopButton;
-    QPushButton *loadPlaylistButton;
+    QPushButton *ChooseFileButton;
     QPushButton *reloadDevicesButton;
     QPushButton *microphoneButton;
     QListWidget *deviceList;

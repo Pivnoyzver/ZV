@@ -28,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Создаём кнопки и список
     startButton = new QPushButton("Начать трансляцию", this);
     stopButton = new QPushButton("Остановить трансляцию", this);
-    loadPlaylistButton = new QPushButton("Загрузить плейлист", this);
+    ChooseFileButton = new QPushButton("Выбрать аудиофайл", this);
     reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
     microphoneButton = new QPushButton("Трансляция с микрофона", this);
     deviceList = new QListWidget(this);
@@ -40,7 +40,7 @@ MainWindow::MainWindow(QWidget *parent)
     QVBoxLayout *layout = new QVBoxLayout();
 
     // Добавляем кнопки и список в макет
-    layout->addWidget(loadPlaylistButton);
+    layout->addWidget(ChooseFileButton);
     layout->addWidget(startButton);
     layout->addWidget(stopButton);
     layout->addWidget(microphoneButton);
@@ -52,13 +52,45 @@ MainWindow::MainWindow(QWidget *parent)
     centralWidget->setLayout(layout);
     setCentralWidget(centralWidget);
 
-    // Добавляем устройства в список (например, IP-адреса)
-    reloadDevices();
+    // Добавляем устройства в список
+
+    // Очищаем текущий список устройств
+    deviceList->clear();
+
+    // Открываем JSON-файл с устройствами
+    QFile file("devices.json");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Не удалось открыть файл devices.json";
+        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json");
+        return;
+    }
+
+    // Читаем содержимое файла
+    QByteArray fileData = file.readAll();
+    file.close();
+
+    // Парсим JSON
+    QJsonDocument doc = QJsonDocument::fromJson(fileData);
+    if (!doc.isObject()) {
+        qDebug() << "Неверный формат JSON";
+        QMessageBox::warning(this, "Файл", "Неверный формат JSON");
+        return;
+    }
+
+    QJsonObject jsonObj = doc.object();
+    QJsonArray devicesArray = jsonObj["devices"].toArray();
+
+    // Добавляем устройства в список
+    foreach (const QJsonValue &value, devicesArray) {
+        QString deviceIP = value.toString();
+        deviceList->addItem(deviceIP);
+        qDebug() << "Добавлено устройство:" << deviceIP;
+    }
 
     // Подключаем сигналы кнопок к слотам
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startStreaming);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopStreaming);
-    connect(loadPlaylistButton, &QPushButton::clicked, this, &MainWindow::loadPlaylist);
+    connect(ChooseFileButton, &QPushButton::clicked, this, &MainWindow::ChooseFile);
     connect(reloadDevicesButton, &QPushButton::clicked, this, &MainWindow::reloadDevices);
     connect(microphoneButton, &QPushButton::clicked, this, &MainWindow::streamFromMicrophone);
 }
@@ -69,7 +101,7 @@ MainWindow::~MainWindow()
 
 QString audioFilePath; // Глобальная переменная для хранения пути к аудиофайлу
 
-void MainWindow::loadPlaylist()
+void MainWindow::ChooseFile()
 {
     // Открываем диалог для выбора аудиофайла
     audioFilePath = QFileDialog::getOpenFileName(this, "Выберите аудиофайл", "", "Audio Files (*.mp3 *.wav)");
@@ -216,7 +248,7 @@ void MainWindow::stopStreaming()
         pipeline = nullptr;  // Сбрасываем pipeline
         qDebug() << "Трансляция остановлена.";
     } else {
-//        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
+        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
         qDebug() << "Трансляция не была запущена.";
     }
 }
@@ -230,6 +262,7 @@ void MainWindow::reloadDevices()
     QFile file("devices.json");
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "Не удалось открыть файл devices.json";
+        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json");
         return;
     }
 
@@ -241,6 +274,7 @@ void MainWindow::reloadDevices()
     QJsonDocument doc = QJsonDocument::fromJson(fileData);
     if (!doc.isObject()) {
         qDebug() << "Неверный формат JSON";
+        QMessageBox::warning(this, "Файл", "Неверный формат JSON");
         return;
     }
 
@@ -255,6 +289,7 @@ void MainWindow::reloadDevices()
     }
 
     qDebug() << "Список устройств обновлён.";
+    QMessageBox::information(this, "Файл", "Список устройств обновлён.");
 }
 
 void MainWindow::streamFromMicrophone()
