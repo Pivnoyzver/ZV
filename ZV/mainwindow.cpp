@@ -247,9 +247,10 @@ void MainWindow::stopStreaming()
         gst_object_unref(pipeline);  // Освобождаем ресурсы
         pipeline = nullptr;  // Сбрасываем pipeline
         qDebug() << "Трансляция остановлена.";
+        QMessageBox::information(this, "Трансляция", "Трансляция остановлена.");
     } else {
-        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
         qDebug() << "Трансляция не была запущена.";
+        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена.");
     }
 }
 
@@ -298,9 +299,13 @@ void MainWindow::streamFromMicrophone()
     QList<QListWidgetItem*> selectedDevices = deviceList->selectedItems();
 
     if (!selectedDevices.isEmpty()) {
-        // Проверяем, что pipeline не был ранее создан
+
+        // Останавливаем предидущюю трансляцию
         if (pipeline) {
-            stopStreaming();
+            gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
+            gst_object_unref(pipeline);  // Освобождаем ресурсы
+            pipeline = nullptr;  // Сбрасываем pipeline
+            qDebug() << "Трансляция остановлена.";
         }
 
         qDebug() << "Создаём GStreamer pipeline для микрофона...";
