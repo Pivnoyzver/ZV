@@ -18,11 +18,11 @@ HEADERS += \
 FORMS += \
     mainwindow.ui
 
-INCLUDEPATH += D:/gstreamer/1.0/msvc_x86_64/include/gstreamer-1.0 \
-               D:/gstreamer/1.0/msvc_x86_64/include/glib-2.0 \
-               D:/gstreamer/1.0/msvc_x86_64/lib/glib-2.0/include
+INCLUDEPATH += path/gstreamer-1.0 \
+               path/glib-2.0 \
+               path/include
 
-LIBS += -LD:/gstreamer/1.0/msvc_x86_64/lib \
+LIBS += -Llib \
         -lgstreamer-1.0 \
         -lgobject-2.0 \
         -lglib-2.0
@@ -33,5 +33,4 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 DISTFILES += \
-    config.json \
     devices.json
