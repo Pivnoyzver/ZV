@@ -1,9 +1,14 @@
 #include "mainwindow.h"
+
 #include <QVBoxLayout>
+#include <QGridLayout>
+
 #include <QFileDialog>
 #include <QStringList>
 #include <QDebug>
+
 #include <gst/gst.h>
+
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -28,31 +33,46 @@ MainWindow::MainWindow(QWidget *parent)
     // Создаём кнопки и список
     startButton = new QPushButton("Начать трансляцию", this);
     stopButton = new QPushButton("Остановить трансляцию", this);
-    ChooseFileButton = new QPushButton("Выбрать аудиофайл", this);
-    reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
     microphoneButton = new QPushButton("Трансляция с микрофона", this);
+
+    AddFileButton = new QPushButton("Добавить аудиофайл", this);
+    RemoveFileButton = new QPushButton("Удалить аудиофайл", this);
+
+    reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
     deviceList = new QListWidget(this);
+
+    playlist = new QListWidget(this);
 
     // Устанавливаем режим множественного выбора для списка
     deviceList->setSelectionMode(QAbstractItemView::MultiSelection);
 
     // Создаём вертикальный макет (layout)
-    QVBoxLayout *layout = new QVBoxLayout();
+    QGridLayout *gridLayout = new QGridLayout();
 
     // Добавляем кнопки и список в макет
-    layout->addWidget(ChooseFileButton);
-    layout->addWidget(startButton);
-    layout->addWidget(stopButton);
-    layout->addWidget(microphoneButton);
-    layout->addWidget(reloadDevicesButton);
-    layout->addWidget(deviceList);
+    gridLayout->addWidget(AddFileButton, 0, 0, 1, 2);
+    gridLayout->addWidget(RemoveFileButton, 0, 2, 1, 2);
+
+    gridLayout->addWidget(startButton, 2, 0);
+    gridLayout->addWidget(stopButton, 2, 2);
+    gridLayout->addWidget(microphoneButton, 2, 1);
+
+    gridLayout->addWidget(reloadDevicesButton, 4, 0, 1, 3);
+    gridLayout->addWidget(deviceList, 5, 0, 1, 3);
+
+    gridLayout->addWidget(playlist, 0, 4, 6, 2);
+
+    AddFileButton->setFixedHeight(AddFileButton->sizeHint().height() * 2);
+    RemoveFileButton->setFixedHeight(RemoveFileButton->sizeHint().height() * 2);
+
+    startButton->setFixedHeight(startButton->sizeHint().height() * 3);
+    microphoneButton->setFixedHeight(microphoneButton->sizeHint().height() * 3);
+    stopButton->setFixedHeight(stopButton->sizeHint().height() * 3);
 
     // Создаём центральный виджет и устанавливаем для него макет
     QWidget *centralWidget = new QWidget(this);
-    centralWidget->setLayout(layout);
+    centralWidget->setLayout(gridLayout);
     setCentralWidget(centralWidget);
-
-    // Добавляем устройства в список
 
     // Очищаем текущий список устройств
     deviceList->clear();
@@ -90,7 +110,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Подключаем сигналы кнопок к слотам
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startStreaming);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopStreaming);
-    connect(ChooseFileButton, &QPushButton::clicked, this, &MainWindow::ChooseFile);
+    connect(AddFileButton, &QPushButton::clicked, this, &MainWindow::AddFile);
     connect(reloadDevicesButton, &QPushButton::clicked, this, &MainWindow::reloadDevices);
     connect(microphoneButton, &QPushButton::clicked, this, &MainWindow::streamFromMicrophone);
 }
@@ -101,7 +121,7 @@ MainWindow::~MainWindow()
 
 QString audioFilePath; // Глобальная переменная для хранения пути к аудиофайлу
 
-void MainWindow::ChooseFile()
+void MainWindow::AddFile()
 {
     // Открываем диалог для выбора аудиофайла
     audioFilePath = QFileDialog::getOpenFileName(this, "Выберите аудиофайл", "", "Audio Files (*.mp3 *.wav)");
