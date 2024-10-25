@@ -51,7 +51,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Добавляем кнопки и список в макет
     gridLayout->addWidget(AddFileButton, 0, 0, 1, 2);
-    gridLayout->addWidget(RemoveFileButton, 0, 2, 1, 2);
+    gridLayout->addWidget(RemoveFileButton, 0, 2, 1, 1);
 
     gridLayout->addWidget(startButton, 2, 0);
     gridLayout->addWidget(stopButton, 2, 2);
