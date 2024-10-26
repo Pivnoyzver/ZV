@@ -14,6 +14,8 @@
 #include <QJsonArray>
 #include <QMessageBox>
 
+#include <QTimer>
+
 #include <gst/gstbin.h>  // Для отладки pipeline
 
 MainWindow::MainWindow(QWidget *parent)
@@ -174,7 +176,8 @@ void MainWindow::startStreaming()
 
     // Получаем выбранные устройства из списка
     QList<QListWidgetItem*> selectedDevices = deviceList->selectedItems();
-    if (selectedDevices.isEmpty()){
+
+    if (selectedDevices.isEmpty()) {
         qDebug() << "Не выбрано ни одного устройства";
         QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
         return;
@@ -187,148 +190,109 @@ void MainWindow::startStreaming()
         return;
     }
 
-    // Перебираем файлы в очереди
-    for (const QString &filePath : playlist) {
-        qDebug() << "Начало трансляции файла:" << filePath;
+    QString filepath = playlist[0];
 
-        qDebug() << "Создаём GStreamer pipeline...";
-        pipeline = gst_pipeline_new("audio-pipeline");
-        GstElement *source = gst_element_factory_make("filesrc", "source");
-        GstElement *decoder = gst_element_factory_make("decodebin", "decoder");
-        GstElement *convert = gst_element_factory_make("audioconvert", "convert");
-        GstElement *tee = gst_element_factory_make("tee", "tee");
+    qDebug() << "Создаём GStreamer pipeline...";
 
-        if (!pipeline || !source || !decoder || !convert || !tee) {
-            qDebug() << "Ошибка: Не удалось создать один или несколько элементов GStreamer";
-            QMessageBox::warning(this, "Ошибка", "Не удалось создать один или несколько элементов GStreamer!");
-            return;
-        }
+    pipeline = gst_pipeline_new("audio-pipeline");
+    GstElement *source = gst_element_factory_make("filesrc", "source");
+    GstElement *decoder = gst_element_factory_make("decodebin", "decoder");
+    GstElement *convert = gst_element_factory_make("audioconvert", "convert");
+    GstElement *tee = gst_element_factory_make("tee", "tee");
 
-        // Устанавливаем путь к выбранному аудиофайлу
-        g_object_set(source, "location", filePath.toStdString().c_str(), NULL);
-        qDebug() << "Путь к аудиофайлу установлен:" << filePath;
-
-        // Добавляем элементы в pipeline
-        gst_bin_add_many(GST_BIN(pipeline), source, decoder, convert, tee, NULL);
-
-        // Связываем source с decoder
-        if (gst_element_link(source, decoder) != TRUE) {
-            qDebug() << "Ошибка: Не удалось связать source и decoder";
-            QMessageBox::warning(this, "Ошибка", "Не удалось связать source и decoder!");
-            return;
-        }
-
-        // Когда decoder готов, связываем его с audioconvert
-        g_signal_connect(decoder, "pad-added", G_CALLBACK(+[](GstElement *, GstPad *pad, GstElement *convert) {
-            GstPad *sinkpad = gst_element_get_static_pad(convert, "sink");
-            if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK) {
-                qDebug() << "Ошибка: Не удалось связать decoder и audioconvert";
-            }
-            gst_object_unref(sinkpad);
-        }), convert);
-
-        // Связываем convert и tee
-        if (gst_element_link_many(convert, tee, NULL) != TRUE) {
-            qDebug() << "Ошибка: Не удалось связать convert и tee";
-            QMessageBox::warning(this, "Ошибка", "Не удалось связать convert и tee!");
-            return;
-        }
-
-        qDebug() << "Элементы GStreamer созданы успешно";
-
-        // Настраиваем трансляцию на выбранные устройства
-        for (auto *item : selectedDevices) {
-            QString deviceIP = item->text();
-            qDebug() << "Настраиваем трансляцию на устройство:" << deviceIP;
-            GstElement *queue = gst_element_factory_make("queue", nullptr);
-            GstElement *rtpPay = gst_element_factory_make("rtpL16pay", nullptr);
-            GstElement *udpSink = gst_element_factory_make("udpsink", nullptr);
-
-            if (!queue || !rtpPay || !udpSink) {
-                qDebug() << "Ошибка: Не удалось создать элементы для RTP трансляции";
-                QMessageBox::warning(this, "Ошибка", "Не удалось создать элементы для RTP трансляции!");
-                return;
-            }
-
-            // Добавляем элементы в pipeline и связываем tee с queue, rtpL16pay и udpSink
-            gst_bin_add_many(GST_BIN(pipeline), queue, rtpPay, udpSink, NULL);
-
-            // Связываем tee -> queue -> rtpL16pay -> udpsink
-            if (!gst_element_link_many(tee, queue, rtpPay, udpSink, NULL)) {
-                qDebug() << "Ошибка: Не удалось связать tee, queue, rtpL16pay и udpsink";
-                QMessageBox::warning(this, "Ошибка", "Не удалось связать tee, queue, rtpL16pay и udpsink!");
-                return;
-            }
-
-            // Устанавливаем параметры для RTP-трансляции (host, port, pt)
-            g_object_set(udpSink,"host", deviceIP.toStdString().c_str(),"port", 5004,"pt", 10,NULL);
-        }
-
-        // Запускаем pipeline
-        qDebug() << "Запуск pipeline...";
-        gst_element_set_state(pipeline, GST_STATE_PLAYING);
-
-        // Проверка состояния pipeline
-        GstState state;
-        GstState pending;
-        GstStateChangeReturn ret = gst_element_get_state(pipeline, &state, &pending, 5 * GST_SECOND);
-
-        if (ret == GST_STATE_CHANGE_FAILURE) {
-            qDebug() << "Ошибка при запуске трансляции";
-            QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции!");
-        } else if (ret == GST_STATE_CHANGE_ASYNC) {
-            qDebug() << "Трансляция запускается асинхронно";
-            const char* res1 = gst_element_state_get_name(state);
-            const char* res2 = gst_element_state_get_name(pending);
-            qDebug() << "Текущее состояние:" << res1;
-            qDebug() << "Ожидаемое состояние:" << res2;
-            QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
-        } else if (ret == GST_STATE_CHANGE_SUCCESS) {
-            qDebug() << "Трансляция начата для файла:" << filePath;
-            QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
-        }
-
-//      GstStateChangeReturn srcState = gst_element_set_state(source, GST_STATE_PLAYING);
-//      qDebug() << "Source state:" << srcState;
-
-//      GstStateChangeReturn decState = gst_element_set_state(decoder, GST_STATE_PLAYING);
-//      qDebug() << "Decoder state:" << decState;
-
-//      for (auto *item : selectedDevices) {
-//          GstStateChangeReturn payState = gst_element_set_state(gst_bin_get_by_name(GST_BIN(pipeline), "rtpL16pay"), GST_STATE_PLAYING);
-//          qDebug() << "RTP Payloader state:" << payState;
-
-//          GstStateChangeReturn udpState = gst_element_set_state(gst_bin_get_by_name(GST_BIN(pipeline), "udpsink"), GST_STATE_PLAYING);
-//          qDebug() << "UDP Sink state:" << udpState;
-//      }
-
-    //  Ожидание завершения трансляции файла
-        GstBus *bus = gst_element_get_bus(pipeline);
-        GstMessage *msg;
-        do {
-            msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, static_cast<GstMessageType>(GST_MESSAGE_EOS | GST_MESSAGE_ERROR));
-            if (msg) {
-                if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
-                    GError *err;
-                    gst_message_parse_error(msg, &err, NULL);
-                    qDebug() << "Ошибка трансляции:" << err->message;
-                    g_error_free(err);
-                    gst_message_unref(msg);
-                    return;
-                }
-                gst_message_unref(msg);
-            }
-        } while (msg && GST_MESSAGE_TYPE(msg) != GST_MESSAGE_EOS);
-
-        // Остановка и освобождение ресурсов для завершённого pipeline
-        gst_element_set_state(pipeline, GST_STATE_NULL);
-        gst_object_unref(pipeline);
-        pipeline = nullptr;
+    if (!pipeline || !source || !decoder || !convert || !tee) {
+        qDebug() << "Ошибка: Не удалось создать один или несколько элементов GStreamer";
+        QMessageBox::warning(this, "Ошибка", "Не удалось создать один или несколько элементов GStreamer!");
+        return;
     }
 
-    qDebug() << "Очередь файлов завершена";
-    QMessageBox::information(this, "Трансляция", "Все файлы в очереди были воспроизведены!");
+    // Устанавливаем путь к выбранному аудиофайлу
+    g_object_set(source, "location", filepath.toStdString().c_str(), NULL);
+    qDebug() << "Путь к аудиофайлу установлен:" << filepath;
 
+    // Добавляем элементы в pipeline
+    gst_bin_add_many(GST_BIN(pipeline), source, decoder, convert, tee, NULL);
+
+    // Связываем source с decoder
+    if (gst_element_link(source, decoder) != TRUE) {
+        qDebug() << "Ошибка: Не удалось связать source и decoder";
+        QMessageBox::warning(this, "Ошибка", "Не удалось связать source и decoder!");
+        return;
+    }
+
+    // Когда decoder готов, связываем его с audioconvert
+    g_signal_connect(decoder, "pad-added", G_CALLBACK(+[](GstElement *, GstPad *pad, GstElement *convert) {
+        GstPad *sinkpad = gst_element_get_static_pad(convert, "sink");
+        if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK) {
+            qDebug() << "Ошибка: Не удалось связать decoder и audioconvert";
+        }
+        gst_object_unref(sinkpad);
+    }), convert);
+
+    // Связываем convert и tee
+    if (gst_element_link_many(convert, tee, NULL) != TRUE) {
+        qDebug() << "Ошибка: Не удалось связать convert и tee";
+        QMessageBox::warning(this, "Ошибка", "Не удалось связать convert и tee!");
+        return;
+    }
+
+    qDebug() << "Элементы GStreamer созданы успешно";
+
+    // Настраиваем трансляцию на выбранные устройства
+    for (auto *item : selectedDevices) {
+        QString deviceIP = item->text();
+        qDebug() << "Настраиваем трансляцию на устройство:" << deviceIP;
+
+        GstElement *queue = gst_element_factory_make("queue", nullptr);
+        GstElement *rtpPay = gst_element_factory_make("rtpL16pay", nullptr);
+        GstElement *udpSink = gst_element_factory_make("udpsink", nullptr);
+
+        if (!queue || !rtpPay || !udpSink) {
+            qDebug() << "Ошибка: Не удалось создать элементы для RTP трансляции";
+            QMessageBox::warning(this, "Ошибка", "Не удалось создать элементы для RTP трансляции!");
+            return;
+        }
+
+        // Добавляем элементы в pipeline и связываем tee с queue, rtpL16pay и udpSink
+        gst_bin_add_many(GST_BIN(pipeline), queue, rtpPay, udpSink, NULL);
+
+        // Связываем tee -> queue -> rtpL16pay -> udpsink
+        if (!gst_element_link_many(tee, queue, rtpPay, udpSink, NULL)) {
+            qDebug() << "Ошибка: Не удалось связать tee, queue, rtpL16pay и udpsink";
+            QMessageBox::warning(this, "Ошибка", "Не удалось связать tee, queue, rtpL16pay и udpsink!");
+            return;
+        }
+
+        // Устанавливаем параметры для RTP-трансляции (host, port, pt)
+        g_object_set(udpSink,"host", deviceIP.toStdString().c_str(),"port", 5004,"pt", 10,NULL);
+    }
+
+    // Запускаем pipeline
+    qDebug() << "Запуск pipeline...";
+    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+
+    // Проверка состояния pipeline
+    GstState state;
+    GstState pending;
+    GstStateChangeReturn ret = gst_element_get_state(pipeline, &state, &pending, 5 * GST_SECOND);
+
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        qDebug() << "Ошибка при запуске трансляции";
+        QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции!");
+    } else if (ret == GST_STATE_CHANGE_ASYNC) {
+        qDebug() << "Трансляция запускается асинхронно";
+        const char* res1 = gst_element_state_get_name(state);
+        const char* res2 = gst_element_state_get_name(pending);
+        qDebug() << "Текущее состояние:" << res1;
+        qDebug() << "Ожидаемое состояние:" << res2;
+        QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
+    } else if (ret == GST_STATE_CHANGE_SUCCESS) {
+        qDebug() << "Трансляция начата для файла:" << filepath;
+        QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
+    }
+
+    playlist.removeFirst();
+    delete playlistWidget->takeItem(0);
 }
 
 void MainWindow::stopStreaming()
