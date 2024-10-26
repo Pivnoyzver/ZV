@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 
-#include <QVBoxLayout>
 #include <QGridLayout>
 
 #include <QFileDialog>
@@ -41,7 +40,7 @@ MainWindow::MainWindow(QWidget *parent)
     reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
     deviceList = new QListWidget(this);
 
-    playlist = new QListWidget(this);
+    playlistWidget = new QListWidget(this);
 
     // Устанавливаем режим множественного выбора для списка
     deviceList->setSelectionMode(QAbstractItemView::MultiSelection);
@@ -60,7 +59,7 @@ MainWindow::MainWindow(QWidget *parent)
     gridLayout->addWidget(reloadDevicesButton, 4, 0, 1, 3);
     gridLayout->addWidget(deviceList, 5, 0, 1, 3);
 
-    gridLayout->addWidget(playlist, 0, 4, 6, 2);
+    gridLayout->addWidget(playlistWidget, 0, 4, 6, 2);
 
     AddFileButton->setFixedHeight(AddFileButton->sizeHint().height() * 2);
     RemoveFileButton->setFixedHeight(RemoveFileButton->sizeHint().height() * 2);
@@ -113,47 +112,86 @@ MainWindow::MainWindow(QWidget *parent)
     connect(AddFileButton, &QPushButton::clicked, this, &MainWindow::AddFile);
     connect(reloadDevicesButton, &QPushButton::clicked, this, &MainWindow::reloadDevices);
     connect(microphoneButton, &QPushButton::clicked, this, &MainWindow::streamFromMicrophone);
+    connect(RemoveFileButton, &QPushButton::clicked, this, &MainWindow::RemoveFile);
 }
 
 MainWindow::~MainWindow()
 {
 }
 
-QString audioFilePath; // Глобальная переменная для хранения пути к аудиофайлу
+QStringList playlist;  // Список для хранения путей к аудиофайлу
 
 void MainWindow::AddFile()
 {
     // Открываем диалог для выбора аудиофайла
-    audioFilePath = QFileDialog::getOpenFileName(this, "Выберите аудиофайл", "", "Audio Files (*.mp3 *.wav)");
+    QString audioFilePath = QFileDialog::getOpenFileName(this, "Выберите аудиофайл", "", "Audio Files (*.mp3 *.wav)");
 
     if (!audioFilePath.isEmpty()) {
+        playlist.append(audioFilePath);
+        playlistWidget->addItem(audioFilePath);
         qDebug() << "Выбранный аудиофайл:" << audioFilePath;
+        QMessageBox::information(this, "Очередь", "Аудиофайл добавлен в очередь!");
     } else {
         qDebug() << "Файл не был выбран.";
     }
 }
 
+void MainWindow::RemoveFile()
+{
+    if (!playlist.isEmpty()) {
+        // Создаём диалоговое окно
+        QMessageBox confirmRemove;
+        confirmRemove.setWindowTitle("Очередь");
+        confirmRemove.setText("Вы действительно хотите удалить последний аудиофайл?");
+        confirmRemove.setIcon(QMessageBox::Question);
+
+        // Устанавливаем кнопки "Да" и "Нет" на русском языке
+        QPushButton *yesButton = confirmRemove.addButton(tr("Да"), QMessageBox::YesRole);
+        QPushButton *noButton = confirmRemove.addButton(tr("Нет"), QMessageBox::NoRole);
+
+        // Показываем диалоговое окно
+        confirmRemove.exec();
+
+        if (confirmRemove.clickedButton() == yesButton) {
+            playlist.removeLast();
+            delete playlistWidget->takeItem(playlistWidget->count() - 1);
+            qDebug() << "Последний аудиофайл удален";
+            QMessageBox::information(this, "Очередь", "Последний аудиофайл удален!");
+        }
+    } else {
+        qDebug() << "Очередь уже пуста";
+        QMessageBox::information(this, "Очередь", "Очередь уже пуста!");
+    }
+}
+
 void MainWindow::startStreaming()
 {
-    if (audioFilePath.isEmpty()) {
-        qDebug() << "Аудиофайл не был выбран";
-        QMessageBox::information(this, "Файл", "Аудиофайл не был выбран!");
+    if (playlist.isEmpty()) {
+        qDebug() << "Очередь пуста";
+        QMessageBox::information(this, "Очередь", "Очередь пуста!");
         return;
     }
 
     // Получаем выбранные устройства из списка
     QList<QListWidgetItem*> selectedDevices = deviceList->selectedItems();
+    if (selectedDevices.isEmpty()){
+        qDebug() << "Не выбрано ни одного устройства";
+        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
+        return;
+    }
 
-    if (!selectedDevices.isEmpty()) {
-        // Проверяем, что pipeline не был ранее создан
-        if (pipeline) {
-            qDebug() << "Трансляция уже запущена";
-            QMessageBox::information(this, "Трансляция", "Трансляция уже запущена!");
-            return;
-        }
+    // Проверяем, что pipeline не был ранее создан
+    if (pipeline) {
+        qDebug() << "Трансляция уже запущена";
+        QMessageBox::information(this, "Трансляция", "Трансляция уже запущена!");
+        return;
+    }
+
+    // Перебираем файлы в очереди
+    for (const QString &filePath : playlist) {
+        qDebug() << "Начало трансляции файла:" << filePath;
 
         qDebug() << "Создаём GStreamer pipeline...";
-
         pipeline = gst_pipeline_new("audio-pipeline");
         GstElement *source = gst_element_factory_make("filesrc", "source");
         GstElement *decoder = gst_element_factory_make("decodebin", "decoder");
@@ -167,8 +205,8 @@ void MainWindow::startStreaming()
         }
 
         // Устанавливаем путь к выбранному аудиофайлу
-        g_object_set(source, "location", audioFilePath.toStdString().c_str(), NULL);
-        qDebug() << "Путь к аудиофайлу установлен:" << audioFilePath;
+        g_object_set(source, "location", filePath.toStdString().c_str(), NULL);
+        qDebug() << "Путь к аудиофайлу установлен:" << filePath;
 
         // Добавляем элементы в pipeline
         gst_bin_add_many(GST_BIN(pipeline), source, decoder, convert, tee, NULL);
@@ -202,7 +240,6 @@ void MainWindow::startStreaming()
         for (auto *item : selectedDevices) {
             QString deviceIP = item->text();
             qDebug() << "Настраиваем трансляцию на устройство:" << deviceIP;
-
             GstElement *queue = gst_element_factory_make("queue", nullptr);
             GstElement *rtpPay = gst_element_factory_make("rtpL16pay", nullptr);
             GstElement *udpSink = gst_element_factory_make("udpsink", nullptr);
@@ -247,29 +284,51 @@ void MainWindow::startStreaming()
             qDebug() << "Ожидаемое состояние:" << res2;
             QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
-            qDebug() << "Трансляция успешно начата";
+            qDebug() << "Трансляция начата для файла:" << filePath;
             QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
         }
 
-        // Дополнительная проверка состояния элементов
-//        GstStateChangeReturn srcState = gst_element_set_state(source, GST_STATE_PLAYING);
-//        qDebug() << "Source state:" << srcState;
+//      GstStateChangeReturn srcState = gst_element_set_state(source, GST_STATE_PLAYING);
+//      qDebug() << "Source state:" << srcState;
 
-//        GstStateChangeReturn decState = gst_element_set_state(decoder, GST_STATE_PLAYING);
-//        qDebug() << "Decoder state:" << decState;
+//      GstStateChangeReturn decState = gst_element_set_state(decoder, GST_STATE_PLAYING);
+//      qDebug() << "Decoder state:" << decState;
 
-//        for (auto *item : selectedDevices) {
-//            GstStateChangeReturn payState = gst_element_set_state(gst_bin_get_by_name(GST_BIN(pipeline), "rtpL16pay"), GST_STATE_PLAYING);
-//            qDebug() << "RTP Payloader state:" << payState;
+//      for (auto *item : selectedDevices) {
+//          GstStateChangeReturn payState = gst_element_set_state(gst_bin_get_by_name(GST_BIN(pipeline), "rtpL16pay"), GST_STATE_PLAYING);
+//          qDebug() << "RTP Payloader state:" << payState;
 
-//            GstStateChangeReturn udpState = gst_element_set_state(gst_bin_get_by_name(GST_BIN(pipeline), "udpsink"), GST_STATE_PLAYING);
-//            qDebug() << "UDP Sink state:" << udpState;
-//        }
+//          GstStateChangeReturn udpState = gst_element_set_state(gst_bin_get_by_name(GST_BIN(pipeline), "udpsink"), GST_STATE_PLAYING);
+//          qDebug() << "UDP Sink state:" << udpState;
+//      }
 
-    } else {
-        qDebug() << "Не выбрано ни одного устройства";
-        QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
+    //  Ожидание завершения трансляции файла
+        GstBus *bus = gst_element_get_bus(pipeline);
+        GstMessage *msg;
+        do {
+            msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, static_cast<GstMessageType>(GST_MESSAGE_EOS | GST_MESSAGE_ERROR));
+            if (msg) {
+                if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+                    GError *err;
+                    gst_message_parse_error(msg, &err, NULL);
+                    qDebug() << "Ошибка трансляции:" << err->message;
+                    g_error_free(err);
+                    gst_message_unref(msg);
+                    return;
+                }
+                gst_message_unref(msg);
+            }
+        } while (msg && GST_MESSAGE_TYPE(msg) != GST_MESSAGE_EOS);
+
+        // Остановка и освобождение ресурсов для завершённого pipeline
+        gst_element_set_state(pipeline, GST_STATE_NULL);
+        gst_object_unref(pipeline);
+        pipeline = nullptr;
     }
+
+    qDebug() << "Очередь файлов завершена";
+    QMessageBox::information(this, "Трансляция", "Все файлы в очереди были воспроизведены!");
+
 }
 
 void MainWindow::stopStreaming()
@@ -277,19 +336,19 @@ void MainWindow::stopStreaming()
     if (pipeline) {
 
         // Создаём диалоговое окно
-        QMessageBox confirmBox;
-        confirmBox.setWindowTitle("Подтверждение");
-        confirmBox.setText("Вы действительно хотите остановить трансляцию?");
-        confirmBox.setIcon(QMessageBox::Question);
+        QMessageBox confirmStop;
+        confirmStop.setWindowTitle("Подтверждение");
+        confirmStop.setText("Вы действительно хотите остановить трансляцию?");
+        confirmStop.setIcon(QMessageBox::Question);
 
         // Устанавливаем кнопки "Да" и "Нет" на русском языке
-        QPushButton *yesButton = confirmBox.addButton(tr("Да"), QMessageBox::YesRole);
-        QPushButton *noButton = confirmBox.addButton(tr("Нет"), QMessageBox::NoRole);
+        QPushButton *yesButton = confirmStop.addButton(tr("Да"), QMessageBox::YesRole);
+        QPushButton *noButton = confirmStop.addButton(tr("Нет"), QMessageBox::NoRole);
 
         // Показываем диалоговое окно
-        confirmBox.exec();
+        confirmStop.exec();
 
-        if (confirmBox.clickedButton() == yesButton) {
+        if (confirmStop.clickedButton() == yesButton) {
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline

@@ -15,11 +15,12 @@ public:
     ~MainWindow();
 
 private slots:
-    void startStreaming();       // Начало трансляции
-    void stopStreaming();        // Остановка трансляции
-    void AddFile();         // Загрузка аудиофайла
-    void reloadDevices();        // Перезагрузка списка устройств
-    void streamFromMicrophone(); // Трансляция с микрофона
+    void startStreaming();        // Начало трансляции
+    void stopStreaming();         // Остановка трансляции
+    void AddFile();               // Загрузка аудиофайла
+    void RemoveFile();            // Удаление последнего аудиофайла
+    void reloadDevices();         // Перезагрузка списка устройств
+    void streamFromMicrophone();  // Трансляция с микрофона
 
 private:
     QPushButton *startButton;
@@ -32,7 +33,7 @@ private:
     QPushButton *reloadDevicesButton;
     QListWidget *deviceList;
 
-    QListWidget *playlist;
+    QListWidget *playlistWidget;
 
     GstElement *pipeline;  // Объявляем pipeline для работы с GStreamer
 };
