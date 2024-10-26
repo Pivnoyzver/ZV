@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QTimer>
 #include <QPushButton>
 #include <QListWidget>
 #include <gst/gst.h>  // Подключаем GStreamer
@@ -21,6 +22,10 @@ private slots:
     void RemoveFile();            // Удаление последнего аудиофайла
     void reloadDevices();         // Перезагрузка списка устройств
     void streamFromMicrophone();  // Трансляция с микрофона
+    void eoscheck();              // Проверка конца файла
+
+signals:
+    void eos();  // Сигнал
 
 private:
     QPushButton *startButton;
@@ -36,6 +41,8 @@ private:
     QListWidget *playlistWidget;
 
     GstElement *pipeline;  // Объявляем pipeline для работы с GStreamer
+
+    QTimer *timer = new QTimer(this);
 };
 
 #endif // MAINWINDOW_H

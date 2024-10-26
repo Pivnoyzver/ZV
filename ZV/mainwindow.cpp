@@ -115,6 +115,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(reloadDevicesButton, &QPushButton::clicked, this, &MainWindow::reloadDevices);
     connect(microphoneButton, &QPushButton::clicked, this, &MainWindow::streamFromMicrophone);
     connect(RemoveFileButton, &QPushButton::clicked, this, &MainWindow::RemoveFile);
+
+    // Сигналы для работы таймера и очередного воспроизведения
+    connect(timer, &QTimer::timeout, this, &MainWindow::eoscheck);
+    connect(this, &MainWindow::eos, this, &MainWindow::startStreaming);
+
 }
 
 MainWindow::~MainWindow()
@@ -288,11 +293,12 @@ void MainWindow::startStreaming()
         QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
     } else if (ret == GST_STATE_CHANGE_SUCCESS) {
         qDebug() << "Трансляция начата для файла:" << filepath;
-        QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
     }
 
     playlist.removeFirst();
     delete playlistWidget->takeItem(0);
+
+    timer->start(100);
 }
 
 void MainWindow::stopStreaming()
@@ -313,6 +319,7 @@ void MainWindow::stopStreaming()
         confirmStop.exec();
 
         if (confirmStop.clickedButton() == yesButton) {
+            timer->stop();
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
@@ -376,6 +383,7 @@ void MainWindow::streamFromMicrophone()
 
         // Останавливаем предидущюю трансляцию
         if (pipeline) {
+            timer->stop();
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
@@ -471,5 +479,25 @@ void MainWindow::streamFromMicrophone()
     } else {
         qDebug() << "Не выбрано ни одного устройства";
         QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
+    }
+}
+
+
+void MainWindow::eoscheck()
+{
+    GstBus *bus = gst_element_get_bus(pipeline);
+    GstMessage *msg = gst_bus_pop(bus);
+
+    if (msg && GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS){
+
+        timer->stop();
+
+        gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
+        gst_object_unref(pipeline);  // Освобождаем ресурсы
+        pipeline = nullptr;  // Сбрасываем pipeline
+
+        qDebug() << "Воспроизведение аудиофайла завершено";
+
+        emit eos();
     }
 }
