@@ -32,12 +32,11 @@ private:
     QPushButton *microphoneButton;
     QPushButton *stopButton;
 
-    QPushButton *AddFileButton;
-    QPushButton *RemoveFileButton;
-
     QPushButton *reloadDevicesButton;
     QListWidget *deviceList;
 
+    QPushButton *AddFileButton;
+    QPushButton *RemoveFileButton;
     QListWidget *playlistWidget;
 
     GstElement *pipeline;  // Объявляем pipeline для работы с GStreamer

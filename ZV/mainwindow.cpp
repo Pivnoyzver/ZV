@@ -1,47 +1,39 @@
 #include "mainwindow.h"
-
-#include <QGridLayout>
-
-#include <QFileDialog>
-#include <QStringList>
 #include <QDebug>
-
+#include <QStringList>
 #include <gst/gst.h>
+#include <QTimer>
 
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+
+#include <QGridLayout>
 #include <QMessageBox>
+#include <QFileDialog>
 
-#include <QTimer>
-
-#include <gst/gstbin.h>  // Для отладки pipeline
-
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), pipeline(nullptr) //Иницивлизация pipiline как nullptr
-{
+MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
 
     // Инициализация GStreamer
-        GError *error = nullptr;
-        if (!gst_init_check(nullptr, nullptr, &error)) {
-            qDebug() << "Ошибка инициализации GStreamer:" << error->message;
-            g_error_free(error);
-        } else {
-            qDebug() << "GStreamer initialized successfully";
-        }
+    GError *error = nullptr;
+    if (!gst_init_check(nullptr, nullptr, &error)) {
+        qDebug() << "Ошибка инициализации GStreamer:" << error->message;
+        g_error_free(error);
+    } else {
+        qDebug() << "GStreamer инициализирован";
+    }
 
-    // Создаём кнопки и список
+    // Создаём кнопки и списоки
     startButton = new QPushButton("Начать трансляцию", this);
     stopButton = new QPushButton("Остановить трансляцию", this);
     microphoneButton = new QPushButton("Трансляция с микрофона", this);
 
-    AddFileButton = new QPushButton("Добавить аудиофайл", this);
-    RemoveFileButton = new QPushButton("Удалить аудиофайл", this);
-
     reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
     deviceList = new QListWidget(this);
 
+    AddFileButton = new QPushButton("Добавить аудиофайл", this);
+    RemoveFileButton = new QPushButton("Удалить", this);
     playlistWidget = new QListWidget(this);
 
     // Устанавливаем режим множественного выбора для списка
@@ -51,20 +43,19 @@ MainWindow::MainWindow(QWidget *parent)
     QGridLayout *gridLayout = new QGridLayout();
 
     // Добавляем кнопки и список в макет
-    gridLayout->addWidget(AddFileButton, 0, 0, 1, 2);
-    gridLayout->addWidget(RemoveFileButton, 0, 2, 1, 1);
+    gridLayout->addWidget(startButton, 0, 0);
+    gridLayout->addWidget(microphoneButton, 1, 0);
+    gridLayout->addWidget(stopButton, 2, 0);
 
-    gridLayout->addWidget(startButton, 2, 0);
-    gridLayout->addWidget(stopButton, 2, 2);
-    gridLayout->addWidget(microphoneButton, 2, 1);
+    gridLayout->addWidget(reloadDevicesButton, 4, 0);
+    gridLayout->addWidget(deviceList, 5, 0);
 
-    gridLayout->addWidget(reloadDevicesButton, 4, 0, 1, 3);
-    gridLayout->addWidget(deviceList, 5, 0, 1, 3);
+    gridLayout->addWidget(AddFileButton, 0, 1, 1, 2);
+    gridLayout->addWidget(RemoveFileButton, 0, 4);
+    gridLayout->addWidget(playlistWidget, 1, 1, 5, 4);
 
-    gridLayout->addWidget(playlistWidget, 0, 4, 6, 2);
-
-    AddFileButton->setFixedHeight(AddFileButton->sizeHint().height() * 2);
-    RemoveFileButton->setFixedHeight(RemoveFileButton->sizeHint().height() * 2);
+    AddFileButton->setFixedHeight(AddFileButton->sizeHint().height() * 3);
+    RemoveFileButton->setFixedHeight(RemoveFileButton->sizeHint().height() * 3);
 
     startButton->setFixedHeight(startButton->sizeHint().height() * 3);
     microphoneButton->setFixedHeight(microphoneButton->sizeHint().height() * 3);
@@ -295,9 +286,6 @@ void MainWindow::startStreaming()
         qDebug() << "Трансляция начата для файла:" << filepath;
     }
 
-    playlist.removeFirst();
-    delete playlistWidget->takeItem(0);
-
     timer->start(100);
 }
 
@@ -495,6 +483,9 @@ void MainWindow::eoscheck()
         gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
         gst_object_unref(pipeline);  // Освобождаем ресурсы
         pipeline = nullptr;  // Сбрасываем pipeline
+
+        playlist.removeFirst();
+        delete playlistWidget->takeItem(0);
 
         qDebug() << "Воспроизведение аудиофайла завершено";
 
