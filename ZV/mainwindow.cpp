@@ -1,17 +1,4 @@
 #include "mainwindow.h"
-#include <QDebug>
-#include <QStringList>
-#include <gst/gst.h>
-#include <QTimer>
-
-#include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-
-#include <QGridLayout>
-#include <QMessageBox>
-#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
 
@@ -24,19 +11,38 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
         qDebug() << "GStreamer инициализирован";
     }
 
+    // Создаем иконки
+    QIcon pauseIcon("icons/pause.png");
+    QIcon skipdIcon("icons/skip.png");
+    QIcon addFileIcon("icons/addfile.png");
+    QIcon removeFileIcon("icons/removefile.png");
+    QIcon microphoneIcon("icons/microphone.png");
+
     // Создаём кнопки и списоки
     startButton = new QPushButton("Начать трансляцию", this);
     stopButton = new QPushButton("Остановить трансляцию", this);
-    skipButton = new QPushButton("skip", this);
-    pauseButton = new QPushButton("Pause", this);
-    microphoneButton = new QPushButton("Трансляция с микрофона", this);
+    skipButton = new QPushButton("", this);
+    pauseButton = new QPushButton("", this);
+    microphoneButton = new QPushButton("", this);
 
     reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
     deviceList = new QListWidget(this);
 
-    AddFileButton = new QPushButton("Добавить аудиофайл", this);
-    RemoveFileButton = new QPushButton("Удалить", this);
+    addFileButton = new QPushButton("", this);
+    removeFileButton = new QPushButton("", this);
     playlistWidget = new QListWidget(this);
+
+    // Подключаем иконки к кнопкам
+    skipButton->setIcon(skipdIcon);
+    pauseButton->setIcon(pauseIcon);
+    addFileButton->setIcon(addFileIcon);
+    removeFileButton->setIcon(removeFileIcon);
+    microphoneButton->setIcon(microphoneIcon);
+
+    // Устанавливаем размер иконок
+    addFileButton->setIconSize(QSize(19, 19));
+    removeFileButton->setIconSize(QSize(19, 19));
+    microphoneButton->setIconSize(QSize(19, 19));
 
     // Устанавливаем режим множественного выбора для списка
     deviceList->setSelectionMode(QAbstractItemView::MultiSelection);
@@ -54,14 +60,14 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     gridLayout->addWidget(reloadDevicesButton, 5, 0, 1, 2);
     gridLayout->addWidget(deviceList, 6, 0, 1, 2);
 
-    gridLayout->addWidget(AddFileButton, 0, 2, 1, 2);
-    gridLayout->addWidget(RemoveFileButton, 0, 5);
+    gridLayout->addWidget(addFileButton, 0, 2, 1, 3);
+    gridLayout->addWidget(removeFileButton, 0, 5);
     gridLayout->addWidget(playlistWidget, 1, 2, 6, 4);
 
-    AddFileButton->setFixedHeight(AddFileButton->sizeHint().height() * 3);
-    RemoveFileButton->setFixedHeight(RemoveFileButton->sizeHint().height() * 3);
+    addFileButton->setFixedHeight(addFileButton->sizeHint().height() * 3);
+    removeFileButton->setFixedHeight(removeFileButton->sizeHint().height() * 3);
 
-    startButton->setFixedHeight(startButton->sizeHint().height() * 3);
+    startButton->setFixedHeight(addFileButton->sizeHint().height() * 3);
     skipButton->setFixedHeight(skipButton->sizeHint().height() * 2);
     pauseButton->setFixedHeight(pauseButton->sizeHint().height() * 2);
     microphoneButton->setFixedHeight(microphoneButton->sizeHint().height() * 3);
@@ -77,12 +83,12 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     // Подключаем сигналы кнопок к слотам
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startStreaming);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopStreaming);
-    connect(AddFileButton, &QPushButton::clicked, this, &MainWindow::AddFile);
+    connect(addFileButton, &QPushButton::clicked, this, &MainWindow::AddFile);
     connect(reloadDevicesButton, &QPushButton::clicked, this, &MainWindow::reloadDevices);
     connect(microphoneButton, &QPushButton::clicked, this, &MainWindow::streamFromMicrophone);
-    connect(RemoveFileButton, &QPushButton::clicked, this, &MainWindow::RemoveFile);
-    connect(skipButton, &QPushButton::clicked, this, &MainWindow::skip);
-    connect(pauseButton, &QPushButton::clicked, this, &MainWindow::pause);
+    connect(removeFileButton, &QPushButton::clicked, this, &MainWindow::RemoveFile);
+    connect(skipButton, &QPushButton::clicked, this, &MainWindow::skipFile);
+    connect(pauseButton, &QPushButton::clicked, this, &MainWindow::pauseStreaming);
 
     // Сигналы для работы таймера и очередного воспроизведения
     connect(timer, &QTimer::timeout, this, &MainWindow::eoscheck);
@@ -300,7 +306,27 @@ void MainWindow::stopStreaming()
     }
 }
 
-void MainWindow::skip()
+void MainWindow::pauseStreaming()
+{
+    if (!pipeline) {
+            qDebug() << "Трансляция не была запущена";
+            QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
+            return;
+        }
+
+    GstState state;
+    gst_element_get_state(pipeline, &state, NULL, GST_CLOCK_TIME_NONE);
+
+    if (state == GST_STATE_PAUSED) {
+            gst_element_set_state(pipeline, GST_STATE_PLAYING);
+            qDebug() << "Воспроизведение возобновлено.";
+        } else {
+            gst_element_set_state(pipeline, GST_STATE_PAUSED);
+            qDebug() << "Трансляция приостановлена.";
+        }
+}
+
+void MainWindow::skipFile()
 {
     if (pipeline) {
 
@@ -322,26 +348,6 @@ void MainWindow::skip()
         qDebug() << "Трансляция не была запущена";
         QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
     }
-}
-
-void MainWindow::pause()
-{
-    if (!pipeline) {
-            qDebug() << "Трансляция не была запущена";
-            QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
-            return;
-        }
-
-    GstState state;
-    gst_element_get_state(pipeline, &state, NULL, GST_CLOCK_TIME_NONE);
-
-    if (state == GST_STATE_PAUSED) {
-            gst_element_set_state(pipeline, GST_STATE_PLAYING);
-            qDebug() << "Воспроизведение возобновлено.";
-        } else {
-            gst_element_set_state(pipeline, GST_STATE_PAUSED);
-            qDebug() << "Трансляция приостановлена.";
-        }
 }
 
 void MainWindow::reloadDevices()

@@ -2,10 +2,23 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QTimer>
+
+#include <QGridLayout>
 #include <QPushButton>
+#include <QMessageBox>
+#include <QFileDialog>
 #include <QListWidget>
-#include <gst/gst.h>  // Подключаем GStreamer
+#include <QIcon>
+
+#include <QDebug>
+#include <QStringList>
+#include <QTimer>
+#include <gst/gst.h>
+
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 class MainWindow : public QMainWindow
 {
@@ -22,8 +35,8 @@ private slots:
     void RemoveFile();            // Удаление последнего аудиофайла
     void reloadDevices();        // слот кнопки перезагрузки списка устройств
     void streamFromMicrophone();  // Трансляция с микрофона
-    void skip();
-    void pause();
+    void skipFile();
+    void pauseStreaming();
 
     void reload();         // Перезагрузка списка устройств
 
@@ -42,8 +55,8 @@ private:
     QPushButton *reloadDevicesButton;
     QListWidget *deviceList;
 
-    QPushButton *AddFileButton;
-    QPushButton *RemoveFileButton;
+    QPushButton *addFileButton;
+    QPushButton *removeFileButton;
     QListWidget *playlistWidget;
 
     GstElement *pipeline;  // Объявляем pipeline для работы с GStreamer
