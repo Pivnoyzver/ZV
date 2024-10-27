@@ -22,6 +22,8 @@ private slots:
     void RemoveFile();            // Удаление последнего аудиофайла
     void reloadDevices();        // слот кнопки перезагрузки списка устройств
     void streamFromMicrophone();  // Трансляция с микрофона
+    void skip();
+    void pause();
 
     void reload();         // Перезагрузка списка устройств
 

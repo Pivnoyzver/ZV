@@ -27,6 +27,8 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     // Создаём кнопки и списоки
     startButton = new QPushButton("Начать трансляцию", this);
     stopButton = new QPushButton("Остановить трансляцию", this);
+    skipButton = new QPushButton("skip", this);
+    pauseButton = new QPushButton("Pause", this);
     microphoneButton = new QPushButton("Трансляция с микрофона", this);
 
     reloadDevicesButton = new QPushButton("Перезагрузить устройства", this);
@@ -43,21 +45,25 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     QGridLayout *gridLayout = new QGridLayout();
 
     // Добавляем кнопки и список в макет
-    gridLayout->addWidget(startButton, 0, 0);
-    gridLayout->addWidget(microphoneButton, 1, 0);
-    gridLayout->addWidget(stopButton, 2, 0);
+    gridLayout->addWidget(startButton, 0, 0, 1, 2);
+    gridLayout->addWidget(skipButton, 1, 0, 1, 1);
+    gridLayout->addWidget(pauseButton, 1, 1, 1, 1);
+    gridLayout->addWidget(microphoneButton, 2, 0, 1, 2);
+    gridLayout->addWidget(stopButton, 3, 0, 1, 2);
 
-    gridLayout->addWidget(reloadDevicesButton, 4, 0);
-    gridLayout->addWidget(deviceList, 5, 0);
+    gridLayout->addWidget(reloadDevicesButton, 5, 0, 1, 2);
+    gridLayout->addWidget(deviceList, 6, 0, 1, 2);
 
-    gridLayout->addWidget(AddFileButton, 0, 1, 1, 2);
-    gridLayout->addWidget(RemoveFileButton, 0, 4);
-    gridLayout->addWidget(playlistWidget, 1, 1, 5, 4);
+    gridLayout->addWidget(AddFileButton, 0, 2, 1, 2);
+    gridLayout->addWidget(RemoveFileButton, 0, 5);
+    gridLayout->addWidget(playlistWidget, 1, 2, 6, 4);
 
     AddFileButton->setFixedHeight(AddFileButton->sizeHint().height() * 3);
     RemoveFileButton->setFixedHeight(RemoveFileButton->sizeHint().height() * 3);
 
     startButton->setFixedHeight(startButton->sizeHint().height() * 3);
+    skipButton->setFixedHeight(skipButton->sizeHint().height() * 2);
+    pauseButton->setFixedHeight(pauseButton->sizeHint().height() * 2);
     microphoneButton->setFixedHeight(microphoneButton->sizeHint().height() * 3);
     stopButton->setFixedHeight(stopButton->sizeHint().height() * 3);
 
@@ -75,6 +81,8 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     connect(reloadDevicesButton, &QPushButton::clicked, this, &MainWindow::reloadDevices);
     connect(microphoneButton, &QPushButton::clicked, this, &MainWindow::streamFromMicrophone);
     connect(RemoveFileButton, &QPushButton::clicked, this, &MainWindow::RemoveFile);
+    connect(skipButton, &QPushButton::clicked, this, &MainWindow::skip);
+    connect(pauseButton, &QPushButton::clicked, this, &MainWindow::pause);
 
     // Сигналы для работы таймера и очередного воспроизведения
     connect(timer, &QTimer::timeout, this, &MainWindow::eoscheck);
@@ -252,7 +260,7 @@ void MainWindow::startStreaming()
         qDebug() << "Ожидаемое состояние:" << res2;
         QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
     } else if (ret == GST_STATE_CHANGE_SUCCESS) {
-        qDebug() << "Трансляция начата для файла:" << filepath << "\n";
+        qDebug() << "Трансляция начата для файла:" << filepath;
     }
 
     timer->start(100);
@@ -287,9 +295,38 @@ void MainWindow::stopStreaming()
     }
 
     else {
-    qDebug() << "Трансляция не была запущена";
-    QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
+        qDebug() << "Трансляция не была запущена";
+        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
     }
+}
+
+void MainWindow::skip()
+{
+    if (pipeline) {
+
+        timer->stop();
+
+        gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
+        gst_object_unref(pipeline);  // Освобождаем ресурсы
+        pipeline = nullptr;  // Сбрасываем pipeline
+
+        playlist.removeFirst();
+        delete playlistWidget->takeItem(0);
+
+        qDebug() << "Воспроизведение аудиофайла завершено";
+
+        emit eos();
+    }
+
+    else {
+        qDebug() << "Трансляция не была запущена";
+        QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
+    }
+}
+
+void MainWindow::pause()
+{
+
 }
 
 void MainWindow::reloadDevices()
