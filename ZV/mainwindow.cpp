@@ -66,38 +66,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     centralWidget->setLayout(gridLayout);
     setCentralWidget(centralWidget);
 
-    // Очищаем текущий список устройств
-    deviceList->clear();
-
-    // Открываем JSON-файл с устройствами
-    QFile file("devices.json");
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Не удалось открыть файл devices.json";
-        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json!");
-        return;
-    }
-
-    // Читаем содержимое файла
-    QByteArray fileData = file.readAll();
-    file.close();
-
-    // Парсим JSON
-    QJsonDocument doc = QJsonDocument::fromJson(fileData);
-    if (!doc.isObject()) {
-        qDebug() << "Неверный формат JSON";
-        QMessageBox::warning(this, "Файл", "Неверный формат JSON!");
-        return;
-    }
-
-    QJsonObject jsonObj = doc.object();
-    QJsonArray devicesArray = jsonObj["devices"].toArray();
-
-    // Добавляем устройства в список
-    foreach (const QJsonValue &value, devicesArray) {
-        QString deviceIP = value.toString();
-        deviceList->addItem(deviceIP);
-        qDebug() << "Добавлено устройство:" << deviceIP;
-    }
+    reload();
 
     // Подключаем сигналы кнопок к слотам
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startStreaming);
@@ -188,7 +157,7 @@ void MainWindow::startStreaming()
 
     QString filepath = playlist[0];
 
-    qDebug() << "Создаём GStreamer pipeline...";
+    qDebug() << "\nСоздаём GStreamer pipeline...";
 
     pipeline = gst_pipeline_new("audio-pipeline");
     GstElement *source = gst_element_factory_make("filesrc", "source");
@@ -283,7 +252,7 @@ void MainWindow::startStreaming()
         qDebug() << "Ожидаемое состояние:" << res2;
         QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
     } else if (ret == GST_STATE_CHANGE_SUCCESS) {
-        qDebug() << "Трансляция начата для файла:" << filepath;
+        qDebug() << "Трансляция начата для файла:" << filepath << "\n";
     }
 
     timer->start(100);
@@ -325,38 +294,7 @@ void MainWindow::stopStreaming()
 
 void MainWindow::reloadDevices()
 {
-    // Очищаем текущий список устройств
-    deviceList->clear();
-
-    // Открываем JSON-файл с устройствами
-    QFile file("devices.json");
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Не удалось открыть файл devices.json";
-        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json!");
-        return;
-    }
-
-    // Читаем содержимое файла
-    QByteArray fileData = file.readAll();
-    file.close();
-
-    // Парсим JSON
-    QJsonDocument doc = QJsonDocument::fromJson(fileData);
-    if (!doc.isObject()) {
-        qDebug() << "Неверный формат JSON";
-        QMessageBox::warning(this, "Файл", "Неверный формат JSON!");
-        return;
-    }
-
-    QJsonObject jsonObj = doc.object();
-    QJsonArray devicesArray = jsonObj["devices"].toArray();
-
-    // Добавляем устройства в список
-    foreach (const QJsonValue &value, devicesArray) {
-        QString deviceIP = value.toString();
-        deviceList->addItem(deviceIP);
-        qDebug() << "Добавлено устройство:" << deviceIP;
-    }
+    reload();
 
     qDebug() << "Список устройств обновлён";
     QMessageBox::information(this, "Файл", "Список устройств обновлён!");
@@ -468,6 +406,44 @@ void MainWindow::streamFromMicrophone()
         qDebug() << "Не выбрано ни одного устройства";
         QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
     }
+}
+
+
+void MainWindow::reload()
+{
+    // Очищаем текущий список устройств
+    deviceList->clear();
+
+    // Открываем JSON-файл с устройствами
+    QFile file("devices.json");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Не удалось открыть файл devices.json";
+        QMessageBox::warning(this, "Файл", "Не удалось открыть файл devices.json!");
+        return;
+    }
+
+    // Читаем содержимое файла
+    QByteArray fileData = file.readAll();
+    file.close();
+
+    // Парсим JSON
+    QJsonDocument doc = QJsonDocument::fromJson(fileData);
+    if (!doc.isObject()) {
+        qDebug() << "Неверный формат JSON";
+        QMessageBox::warning(this, "Файл", "Неверный формат JSON!");
+        return;
+    }
+
+    QJsonObject jsonObj = doc.object();
+    QJsonArray devicesArray = jsonObj["devices"].toArray();
+
+    // Добавляем устройства в список
+    foreach (const QJsonValue &value, devicesArray) {
+        QString deviceIP = value.toString();
+        deviceList->addItem(deviceIP);
+        qDebug() << "Добавлено устройство:" << deviceIP;
+    }
+
 }
 
 

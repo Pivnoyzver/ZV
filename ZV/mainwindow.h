@@ -20,8 +20,11 @@ private slots:
     void stopStreaming();         // Остановка трансляции
     void AddFile();               // Загрузка аудиофайла
     void RemoveFile();            // Удаление последнего аудиофайла
-    void reloadDevices();         // Перезагрузка списка устройств
+    void reloadDevices();        // слот кнопки перезагрузки списка устройств
     void streamFromMicrophone();  // Трансляция с микрофона
+
+    void reload();         // Перезагрузка списка устройств
+
     void eoscheck();              // Проверка конца файла
 
 signals:
@@ -29,6 +32,8 @@ signals:
 
 private:
     QPushButton *startButton;
+    QPushButton *skipButton;
+    QPushButton *pauseButton;
     QPushButton *microphoneButton;
     QPushButton *stopButton;
 
