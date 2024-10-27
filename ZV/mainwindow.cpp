@@ -46,8 +46,8 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
 
     // Добавляем кнопки и список в макет
     gridLayout->addWidget(startButton, 0, 0, 1, 2);
-    gridLayout->addWidget(skipButton, 1, 0, 1, 1);
-    gridLayout->addWidget(pauseButton, 1, 1, 1, 1);
+    gridLayout->addWidget(skipButton, 1, 1, 1, 1);
+    gridLayout->addWidget(pauseButton, 1, 0, 1, 1);
     gridLayout->addWidget(microphoneButton, 2, 0, 1, 2);
     gridLayout->addWidget(stopButton, 3, 0, 1, 2);
 
@@ -326,7 +326,22 @@ void MainWindow::skip()
 
 void MainWindow::pause()
 {
+    if (!pipeline) {
+            qDebug() << "Трансляция не была запущена";
+            QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
+            return;
+        }
 
+    GstState state;
+    gst_element_get_state(pipeline, &state, NULL, GST_CLOCK_TIME_NONE);
+
+    if (state == GST_STATE_PAUSED) {
+            gst_element_set_state(pipeline, GST_STATE_PLAYING);
+            qDebug() << "Воспроизведение возобновлено.";
+        } else {
+            gst_element_set_state(pipeline, GST_STATE_PAUSED);
+            qDebug() << "Трансляция приостановлена.";
+        }
 }
 
 void MainWindow::reloadDevices()
