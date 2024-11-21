@@ -101,6 +101,7 @@ MainWindow::~MainWindow()
 }
 
 QStringList playlist;  // Список для хранения путей к аудиофайлу
+bool firststart = 1;
 
 void MainWindow::AddFile()
 {
@@ -109,7 +110,17 @@ void MainWindow::AddFile()
 
     if (!audioFilePath.isEmpty()) {
         playlist.append(audioFilePath);
-        playlistWidget->addItem(audioFilePath);
+
+        int lastSlash = audioFilePath.lastIndexOf('/');
+        if(lastSlash == -1){
+            lastSlash = audioFilePath.lastIndexOf('\\');
+        }
+        if(lastSlash == -1){
+            playlistWidget->addItem(audioFilePath);
+        } else {
+            playlistWidget->addItem(audioFilePath.mid(lastSlash + 1));
+        }
+
         qDebug() << "Выбранный аудиофайл:" << audioFilePath;
         QMessageBox::information(this, "Очередь", "Аудиофайл добавлен в очередь!");
     } else {
@@ -147,18 +158,19 @@ void MainWindow::RemoveFile()
 
 void MainWindow::startStreaming()
 {
-    if (playlist.isEmpty()) {
-        qDebug() << "Очередь пуста";
-        QMessageBox::information(this, "Очередь", "Очередь пуста!");
-        return;
-    }
-
     // Получаем выбранные устройства из списка
     QList<QListWidgetItem*> selectedDevices = deviceList->selectedItems();
 
     if (selectedDevices.isEmpty()) {
         qDebug() << "Не выбрано ни одного устройства";
         QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
+        return;
+    }
+
+    if (playlist.isEmpty()) {
+        qDebug() << "Очередь пуста";
+        QMessageBox::information(this, "Очередь", "Очередь пуста!");
+        firststart = 1;
         return;
     }
 
@@ -258,6 +270,7 @@ void MainWindow::startStreaming()
     if (ret == GST_STATE_CHANGE_FAILURE) {
         qDebug() << "Ошибка при запуске трансляции";
         QMessageBox::warning(this, "Ошибка", "Ошибка при запуске трансляции!");
+        return;
     } else if (ret == GST_STATE_CHANGE_ASYNC) {
         qDebug() << "Трансляция запускается асинхронно";
         const char* res1 = gst_element_state_get_name(state);
@@ -265,8 +278,14 @@ void MainWindow::startStreaming()
         qDebug() << "Текущее состояние:" << res1;
         qDebug() << "Ожидаемое состояние:" << res2;
         QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
+        return;
     } else if (ret == GST_STATE_CHANGE_SUCCESS) {
         qDebug() << "Трансляция начата для файла:" << filepath;
+
+        if(firststart){
+            QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
+            firststart = 0;
+        }
     }
 
     timer->start(100);
@@ -294,6 +313,8 @@ void MainWindow::stopStreaming()
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
+
+            firststart = 1;
 
             qDebug() << "Трансляция остановлена";
             QMessageBox::information(this, "Трансляция", "Трансляция остановлена!");
