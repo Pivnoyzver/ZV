@@ -32,6 +32,11 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     removeFileButton = new QPushButton("", this);
     playlistWidget = new QListWidget(this);
 
+    statlamp = new QLabel(this);
+
+    //создаем лампочку
+    statlamp->setStyleSheet("background-color: red; border-radius: 7px; width: 15px; height: 15px;");
+
     // Подключаем иконки к кнопкам
     skipButton->setIcon(skipdIcon);
     pauseButton->setIcon(pauseIcon);
@@ -51,25 +56,31 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     QGridLayout *gridLayout = new QGridLayout();
 
     // Добавляем кнопки и список в макет
-    gridLayout->addWidget(startButton, 0, 0, 1, 2);
-    gridLayout->addWidget(skipButton, 1, 1, 1, 1);
-    gridLayout->addWidget(pauseButton, 1, 0, 1, 1);
-    gridLayout->addWidget(microphoneButton, 2, 0, 1, 2);
-    gridLayout->addWidget(stopButton, 3, 0, 1, 2);
+    gridLayout->addWidget(statlamp, 0, 0, 1, 1);
 
-    gridLayout->addWidget(reloadDevicesButton, 5, 0, 1, 2);
-    gridLayout->addWidget(deviceList, 6, 0, 1, 2);
+    gridLayout->addWidget(startButton, 0, 1, 1, 3);
+    gridLayout->addWidget(skipButton, 1, 2, 1, 2);
+    gridLayout->addWidget(pauseButton, 1, 0, 1, 2);
+    gridLayout->addWidget(microphoneButton, 2, 0, 1, 4);
+    gridLayout->addWidget(stopButton, 3, 0, 1, 4);
 
-    gridLayout->addWidget(addFileButton, 0, 2, 1, 3);
-    gridLayout->addWidget(removeFileButton, 0, 5);
-    gridLayout->addWidget(playlistWidget, 1, 2, 6, 4);
+    gridLayout->addWidget(reloadDevicesButton, 5, 0, 1, 4);
+    gridLayout->addWidget(deviceList, 6, 0, 1, 4);
+
+    gridLayout->addWidget(addFileButton, 0, 4, 1, 3);
+    gridLayout->addWidget(removeFileButton, 0, 7);
+    gridLayout->addWidget(playlistWidget, 1, 4, 6, 4);
+
+    //ставим кастомный размер
+
+    statlamp->setFixedSize(15, 15);
 
     addFileButton->setFixedHeight(addFileButton->sizeHint().height() * 3);
     removeFileButton->setFixedHeight(removeFileButton->sizeHint().height() * 3);
 
     startButton->setFixedHeight(addFileButton->sizeHint().height() * 3);
-    skipButton->setFixedHeight(skipButton->sizeHint().height() * 2);
-    pauseButton->setFixedHeight(pauseButton->sizeHint().height() * 2);
+    skipButton->setFixedSize(125, 48);
+    pauseButton->setFixedSize(125, 48);;
     microphoneButton->setFixedHeight(microphoneButton->sizeHint().height() * 3);
     stopButton->setFixedHeight(stopButton->sizeHint().height() * 3);
 
@@ -169,6 +180,7 @@ void MainWindow::startStreaming()
 
     if (playlist.isEmpty()) {
         qDebug() << "Очередь пуста";
+        setlamp(0);
         QMessageBox::information(this, "Очередь", "Очередь пуста!");
         firststart = 1;
         return;
@@ -283,6 +295,7 @@ void MainWindow::startStreaming()
         qDebug() << "Трансляция начата для файла:" << filepath;
 
         if(firststart){
+            setlamp(1);
             QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
             firststart = 0;
         }
@@ -314,6 +327,7 @@ void MainWindow::stopStreaming()
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
 
+            setlamp(0);
             firststart = 1;
 
             qDebug() << "Трансляция остановлена";
@@ -389,6 +403,7 @@ void MainWindow::streamFromMicrophone()
         // Останавливаем предидущюю трансляцию
         if (pipeline) {
             timer->stop();
+            setlamp(0);
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
@@ -478,6 +493,7 @@ void MainWindow::streamFromMicrophone()
             QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
             qDebug() << "Трансляция успешно начата";
+            setlamp(1);
             QMessageBox::information(this, "Трансляция с микрофона", "Трансляция с микрофона успешно начата!\nВсе предыдущие трансляции были остановлены");
         }
 
@@ -486,7 +502,6 @@ void MainWindow::streamFromMicrophone()
         QMessageBox::information(this, "Трансляция", "Не выбрано ни одного устройства!");
     }
 }
-
 
 void MainWindow::reload()
 {
@@ -523,6 +538,15 @@ void MainWindow::reload()
         qDebug() << "Добавлено устройство:" << deviceIP;
     }
 
+}
+
+void MainWindow::setlamp(bool f)
+{
+    if (f) {
+        statlamp->setStyleSheet("background-color: green; border-radius: 7px; width: 15px; height: 15px;");
+    } else {
+        statlamp->setStyleSheet("background-color: red; border-radius: 7px; width: 15px; height: 15px;");
+    }
 }
 
 

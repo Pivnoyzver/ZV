@@ -4,6 +4,7 @@
 #include <QMainWindow>
 
 #include <QGridLayout>
+#include <QLabel>
 #include <QPushButton>
 #include <QMessageBox>
 #include <QFileDialog>
@@ -40,6 +41,8 @@ private slots:
 
     void reload();         // Перезагрузка списка устройств
 
+    void setlamp(bool f);
+
     void eoscheck();              // Проверка конца файла
 
 signals:
@@ -58,6 +61,8 @@ private:
     QPushButton *addFileButton;
     QPushButton *removeFileButton;
     QListWidget *playlistWidget;
+
+    QLabel *statlamp;
 
     GstElement *pipeline;  // Объявляем pipeline для работы с GStreamer
 
