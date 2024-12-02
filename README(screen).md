@@ -16,3 +16,7 @@
 <p> 3.0 </p>
 
 ![Снимок экрана 2024-10-29 224321](https://github.com/user-attachments/assets/30c27886-9ae5-47b8-9e0a-383ba15258de)
+
+<p> 3.4 </p>
+
+![Снимок экрана 2024-11-29 071800](https://github.com/user-attachments/assets/f69d3620-4185-47bf-8630-18e3ed69b160)
