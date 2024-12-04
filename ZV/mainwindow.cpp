@@ -112,7 +112,9 @@ MainWindow::~MainWindow()
 }
 
 QStringList playlist;  // Список для хранения путей к аудиофайлу
+
 bool firststart = 1;
+bool streammic = 0;
 
 void MainWindow::AddFile()
 {
@@ -329,6 +331,7 @@ void MainWindow::stopStreaming()
 
             setlamp(0);
             firststart = 1;
+            streammic = 0;
 
             qDebug() << "Трансляция остановлена";
             QMessageBox::information(this, "Трансляция", "Трансляция остановлена!");
@@ -343,6 +346,12 @@ void MainWindow::stopStreaming()
 
 void MainWindow::pauseStreaming()
 {
+    if (streammic) {
+
+        QMessageBox::information(this, "Трансляция", "Невозможно применить к трансляции с микрофона!");
+        return;
+    }
+
     if (!pipeline) {
             qDebug() << "Трансляция не была запущена";
             QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
@@ -363,6 +372,12 @@ void MainWindow::pauseStreaming()
 
 void MainWindow::skipFile()
 {
+    if (streammic) {
+
+        QMessageBox::information(this, "Трансляция", "Невозможно применить к трансляции с микрофона!");
+        return;
+    }
+
     if (pipeline) {
 
         timer->stop();
@@ -493,7 +508,10 @@ void MainWindow::streamFromMicrophone()
             QMessageBox::warning(this, "Ошибка", QString("Трансляция запускается асинхронно!\nТекущее состояние: %1\nОжидаемое состояние: %2").arg(QString(res1),QString(res2)));
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
             qDebug() << "Трансляция успешно начата";
+
             setlamp(1);
+            streammic = 1;
+
             QMessageBox::information(this, "Трансляция с микрофона", "Трансляция с микрофона успешно начата!\nВсе предыдущие трансляции были остановлены");
         }
 
