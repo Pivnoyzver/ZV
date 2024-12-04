@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
 
     statlamp = new QLabel(this);
 
-    //создаем лампочку
+    //создаем лампочку(для отоброжения трансляции)
     statlamp->setStyleSheet("background-color: red; border-radius: 7px; width: 15px; height: 15px;");
 
     // Подключаем иконки к кнопкам
@@ -52,7 +52,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent), pipeline(nullptr){
     // Устанавливаем режим множественного выбора для списка
     deviceList->setSelectionMode(QAbstractItemView::MultiSelection);
 
-    // Создаём вертикальный макет (layout)
+    // Создаём макет
     QGridLayout *gridLayout = new QGridLayout();
 
     // Добавляем кнопки и список в макет
@@ -113,8 +113,8 @@ MainWindow::~MainWindow()
 
 QStringList playlist;  // Список для хранения путей к аудиофайлу
 
-bool firststart = 1;
-bool streammic = 0;
+bool firststart = 1;    // Переменная для диалогового окна запуска трансляции
+bool streammic = 0;    // Переменная для идентификации трансляции как транс. с микрофона
 
 void MainWindow::AddFile()
 {
@@ -122,13 +122,14 @@ void MainWindow::AddFile()
     QString audioFilePath = QFileDialog::getOpenFileName(this, "Выберите аудиофайл", "", "Audio Files (*.mp3 *.wav)");
 
     if (!audioFilePath.isEmpty()) {
-        playlist.append(audioFilePath);
+        playlist.append(audioFilePath); //Добовляем путь к файлу в очередь
 
+        // Убераем из пути путь, оставляя только название файла и добовляем в виджет списка очереди
         int lastSlash = audioFilePath.lastIndexOf('/');
-        if(lastSlash == -1){
+        if (lastSlash == -1) {
             lastSlash = audioFilePath.lastIndexOf('\\');
         }
-        if(lastSlash == -1){
+        if (lastSlash == -1) {
             playlistWidget->addItem(audioFilePath);
         } else {
             playlistWidget->addItem(audioFilePath.mid(lastSlash + 1));
@@ -150,7 +151,7 @@ void MainWindow::RemoveFile()
         confirmRemove.setText("Вы действительно хотите удалить последний аудиофайл?");
         confirmRemove.setIcon(QMessageBox::Question);
 
-        // Устанавливаем кнопки "Да" и "Нет" на русском языке
+        // Устанавливаем кнопки Да и Нет
         QPushButton *yesButton = confirmRemove.addButton(tr("Да"), QMessageBox::YesRole);
         QPushButton *noButton = confirmRemove.addButton(tr("Нет"), QMessageBox::NoRole);
 
@@ -195,6 +196,7 @@ void MainWindow::startStreaming()
         return;
     }
 
+    // выбираем первый файл в очереди
     QString filepath = playlist[0];
 
     qDebug() << "\nСоздаём GStreamer pipeline...";
@@ -225,7 +227,7 @@ void MainWindow::startStreaming()
         return;
     }
 
-    // Когда decoder готов, связываем его с audioconvert
+    // связываем decoder с audioconvert
     g_signal_connect(decoder, "pad-added", G_CALLBACK(+[](GstElement *, GstPad *pad, GstElement *convert) {
         GstPad *sinkpad = gst_element_get_static_pad(convert, "sink");
         if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK) {
@@ -268,7 +270,7 @@ void MainWindow::startStreaming()
             return;
         }
 
-        // Устанавливаем параметры для RTP-трансляции (host, port, pt)
+        // Устанавливаем параметры для RTP-трансляции
         g_object_set(udpSink,"host", deviceIP.toStdString().c_str(),"port", 5004,"pt", 10,NULL);
     }
 
@@ -296,14 +298,15 @@ void MainWindow::startStreaming()
     } else if (ret == GST_STATE_CHANGE_SUCCESS) {
         qDebug() << "Трансляция начата для файла:" << filepath;
 
+        // если трансляция запушена пользователем, а не очередным воспроизведением показываем диалоговое окно о ее запуске
         if(firststart){
-            setlamp(1);
+            setlamp(1); // включаем лампочку
             QMessageBox::information(this, "Трансляция", "Трансляция успешно начата!");
             firststart = 0;
         }
     }
 
-    timer->start(100);
+    timer->start(100); // включаем таймер для очередного воспроизведения
 }
 
 void MainWindow::stopStreaming()
@@ -316,7 +319,7 @@ void MainWindow::stopStreaming()
         confirmStop.setText("Вы действительно хотите остановить трансляцию?");
         confirmStop.setIcon(QMessageBox::Question);
 
-        // Устанавливаем кнопки "Да" и "Нет" на русском языке
+        // Устанавливаем кнопки Да и Нет
         QPushButton *yesButton = confirmStop.addButton(tr("Да"), QMessageBox::YesRole);
         QPushButton *noButton = confirmStop.addButton(tr("Нет"), QMessageBox::NoRole);
 
@@ -324,11 +327,12 @@ void MainWindow::stopStreaming()
         confirmStop.exec();
 
         if (confirmStop.clickedButton() == yesButton) {
-            timer->stop();
+            timer->stop(); // останавливаем таймер
             gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
             gst_object_unref(pipeline);  // Освобождаем ресурсы
             pipeline = nullptr;  // Сбрасываем pipeline
 
+            //выключаем лампочку и сбрасываем все переменные
             setlamp(0);
             firststart = 1;
             streammic = 0;
@@ -346,12 +350,14 @@ void MainWindow::stopStreaming()
 
 void MainWindow::pauseStreaming()
 {
+    // если трансляция запушена с микрофона то return
     if (streammic) {
 
         QMessageBox::information(this, "Трансляция", "Невозможно применить к трансляции с микрофона!");
         return;
     }
 
+    //return если трансяция не запущена
     if (!pipeline) {
             qDebug() << "Трансляция не была запущена";
             QMessageBox::information(this, "Трансляция", "Трансляция не была запущена!");
@@ -364,9 +370,11 @@ void MainWindow::pauseStreaming()
     if (state == GST_STATE_PAUSED) {
             gst_element_set_state(pipeline, GST_STATE_PLAYING);
             qDebug() << "Воспроизведение возобновлено.";
+            QMessageBox::information(this, "Трансляция", "Воспроизведение возобновлено.");
         } else {
             gst_element_set_state(pipeline, GST_STATE_PAUSED);
             qDebug() << "Трансляция приостановлена.";
+            QMessageBox::information(this, "Трансляция", "Трансляция приостановлена.");
         }
 }
 
@@ -386,8 +394,10 @@ void MainWindow::skipFile()
         gst_object_unref(pipeline);  // Освобождаем ресурсы
         pipeline = nullptr;  // Сбрасываем pipeline
 
-        playlist.removeFirst();
-        delete playlistWidget->takeItem(0);
+        if (!playlist.isEmpty()){
+            playlist.removeFirst();
+            delete playlistWidget->takeItem(0);
+        }
 
         qDebug() << "Воспроизведение аудиофайла завершено";
 
@@ -440,7 +450,7 @@ void MainWindow::streamFromMicrophone()
             return;
         }
 
-        // Устанавливаем caps для rtpL16pay с частотой дискретизации 44100 и 2 каналами
+        // Устанавливаем caps для rtpL16pay с частотой дискретизации 44100
         GstCaps *caps = gst_caps_new_simple("audio/x-raw","rate", G_TYPE_INT, 44100,"channels", G_TYPE_INT, 2,NULL);
 
         g_object_set(capsfilter, "caps", caps, NULL);
@@ -538,7 +548,6 @@ void MainWindow::reload()
     QByteArray fileData = file.readAll();
     file.close();
 
-    // Парсим JSON
     QJsonDocument doc = QJsonDocument::fromJson(fileData);
     if (!doc.isObject()) {
         qDebug() << "Неверный формат JSON";
@@ -546,8 +555,8 @@ void MainWindow::reload()
         return;
     }
 
-    QJsonObject jsonObj = doc.object();
-    QJsonArray devicesArray = jsonObj["devices"].toArray();
+    QJsonObject jsonObject = doc.object();
+    QJsonArray devicesArray = jsonObject["devices"].toArray();
 
     // Добавляем устройства в список
     foreach (const QJsonValue &value, devicesArray) {
@@ -561,31 +570,32 @@ void MainWindow::reload()
 void MainWindow::setlamp(bool f)
 {
     if (f) {
-        statlamp->setStyleSheet("background-color: green; border-radius: 7px; width: 15px; height: 15px;");
+        statlamp->setStyleSheet("background-color: green; border-radius: 7px; width: 15px; height: 15px;"); // если лампочка выключена включаем
     } else {
-        statlamp->setStyleSheet("background-color: red; border-radius: 7px; width: 15px; height: 15px;");
+        statlamp->setStyleSheet("background-color: red; border-radius: 7px; width: 15px; height: 15px;"); // выключаем
     }
 }
 
 
-void MainWindow::eoscheck()
+void MainWindow::eoscheck() // фунция котрую вызывет таймер
 {
     GstBus *bus = gst_element_get_bus(pipeline);
     GstMessage *msg = gst_bus_pop(bus);
 
+    // проверяем не закнчился ли стрим
     if (msg && GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS){
 
-        timer->stop();
+        timer->stop(); //выключаем таймер
 
         gst_element_set_state(pipeline, GST_STATE_NULL);  // Останавливаем pipeline
         gst_object_unref(pipeline);  // Освобождаем ресурсы
         pipeline = nullptr;  // Сбрасываем pipeline
 
-        playlist.removeFirst();
-        delete playlistWidget->takeItem(0);
+        playlist.removeFirst(); //удаляем последний файл из очереди
+        delete playlistWidget->takeItem(0); //удаляем последний элемент из виджета списка очереди
 
         qDebug() << "Воспроизведение аудиофайла завершено";
 
-        emit eos();
+        emit eos(); //пиликаем сигнал конца трансляцыы запускающий startstream для след файла
     }
 }
