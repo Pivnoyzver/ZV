@@ -519,8 +519,8 @@ void MainWindow::streamFromMicrophone()
         } else if (ret == GST_STATE_CHANGE_SUCCESS) {
             qDebug() << "Трансляция успешно начата";
 
-            setlamp(1);
             streammic = 1;
+            setlamp(1);
 
             QMessageBox::information(this, "Трансляция с микрофона", "Трансляция с микрофона успешно начата!\nВсе предыдущие трансляции были остановлены");
         }
@@ -570,7 +570,11 @@ void MainWindow::reload()
 void MainWindow::setlamp(bool f)
 {
     if (f) {
+        if (streammic){
+            statlamp->setStyleSheet("background-color: blue; border-radius: 7px; width: 15px; height: 15px;");
+        } else {
         statlamp->setStyleSheet("background-color: green; border-radius: 7px; width: 15px; height: 15px;"); // если лампочка выключена включаем
+        }
     } else {
         statlamp->setStyleSheet("background-color: red; border-radius: 7px; width: 15px; height: 15px;"); // выключаем
     }
